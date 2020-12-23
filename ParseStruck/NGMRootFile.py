@@ -12,7 +12,7 @@ import uproot as up
 import time
 import os
 import sys
-
+from scipy.ndimage import gaussian_filter
 
 class NGMRootFile:
 
@@ -33,7 +33,8 @@ class NGMRootFile:
 			self.channel_map = config.channel_map
 		else:
 			print('WARNING: No channel map file provided. Using the default one...')
-			self.channel_map = pd.read_csv(package_directory + '/channel_map_8ns_sampling.txt',skiprows=9)
+			self.channel_map = pd.read_csv('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/30th/Channel_Map_Run30.csv',skiprows=0)
+			#self.channel_map = pd.read_csv(package_directory + '/channel_map_8ns_sampling.txt',skiprows=9)
 		self.h5_file = None
 
         ####################################################################
@@ -65,7 +66,7 @@ class NGMRootFile:
 		file_counter = 0
 		global_evt_counter = 0
 		local_evt_counter = 0
-		df = pd.DataFrame(columns=['Channels','Timestamp','Data','ChannelTypes','ChannelPositions'])
+		df = pd.DataFrame(columns=['Channels','Timestamp','Data','ChannelTypes','ChannelPositions','SiPMEnergy'])
 		start_time = time.time()
 		print('{} entries per event.'.format(len(self.channel_map)))
 
@@ -90,13 +91,43 @@ class NGMRootFile:
 			output_series['Data'] = data_series['_waveform']
 			channel_mask, channel_types, channel_positions = self.GenerateChannelMask( data_series['_slot'],data_series['_channel'])
 			output_series['ChannelTypes'] = channel_types
+			#print('-----------------------')
+			#print(type(data_series['_waveform'][0]))
+			#print(type(output_series['Channels']))
+			#print(len(output_series['Channels']))
 			output_series['ChannelPositions'] = channel_positions
+			###################################################################
+		    #for SiPM gain calibration Yasheng Fu 12/23/2020
+            datas=[]
+			for i in np.arange(len(output_series['Channels'])):
+				sampling_period_ns = 1./(62.5/1.e3)#hard code need to change
+				data_series['_waveform'][i] = gaussian_filter( data_series['_waveform'][i].astype(float), \
+				80./sampling_period_ns )
+				baseline = np.mean(data_series['_waveform'][i])
+				max_point = np.max(data_series['_waveform'][i])
+				t_max_point = np.argmax(data_series['_waveform'][i])
+				
+				window_start = t_max_point - int(400/sampling_period_ns)
+				window_end = t_max_point + int(450/sampling_period_ns)
+
+				data_array = data_series['_waveform'][i][window_start:window_end]-baseline
+				cumul_pulse_energy = np.cumsum( data_array)
+				area_window_length = int(50./sampling_period_ns)# average over 50ns
+				sipm_energy = np.mean(cumul_pulse_energy[-area_window_length:])
+				#print(max_point)
+				#print(max_point-baseline)
+				#print(sipm_energy) 
+				datas.append(sipm_energy)
+			output_series['SiPMEnergy'] = datas
+			#print('################')
+			#print(type(output_series['SiPMEnergy']))
+            ###################################################################
 			df = df.append(output_series,ignore_index=True)	
 
 
 			global_evt_counter += 1
 			local_evt_counter += 1
-			if local_evt_counter > 200 and save:
+			if local_evt_counter > 20 and save:
 				output_filename = '{}{}_{:0>3}.h5'.format( self.output_directory,\
 									self.GetFileTitle(str(self.infile.name)),\
 									file_counter )
