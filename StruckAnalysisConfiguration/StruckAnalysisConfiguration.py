@@ -19,7 +19,8 @@ class StruckAnalysisConfiguration:
 
   ###############################################################################
   def GetChannelMapFromFile( self, input_file, sheet = None ):
-      if len(sheet)>31:
+
+      if sheet and len(sheet)>31:#by yasheng
           sheet = sheet[:31]
 
       if input_file.split('.')[-1] == 'csv':
@@ -250,7 +251,7 @@ class StruckAnalysisConfiguration:
       # The input file needs two columns: 'Parameter' and 'Value'
       # We will end up with a dict called run_parameters
 
-      if len(sheet)>31:
+      if sheet and len(sheet)>31:
           sheet = sheet[:31]
 
       if input_file.split('.')[-1] == 'csv':

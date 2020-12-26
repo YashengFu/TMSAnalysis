@@ -450,7 +450,7 @@ class Event:
 			channel_map_file):
 
 		from TMSAnalysis.StruckAnalysisConfiguration import StruckAnalysisConfiguration
-		import uproot
+		import uproot3
 
 		try :
 			if path_to_tier1[-1] is not '/':
@@ -491,7 +491,7 @@ class Event:
 			path_to_file = reduced[:-len(fname)]
 			self.tot_charge_energy = 0.0
 
-		tier1_tree = uproot.open('{}{}'.format(path_to_file,fname))['HitTree']
+		tier1_tree = uproot3.open('{}{}'.format(path_to_file,fname))['HitTree']
 		tier1_ev = tier1_tree.arrays( entrystart=self.event_number*channel_number, entrystop=(self.event_number+1)*channel_number)
 		#the events picked from the reduced file and from the tier1 root file are cross-checked with their timestamp
 		try:
