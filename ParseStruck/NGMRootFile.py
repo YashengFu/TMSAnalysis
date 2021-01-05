@@ -8,11 +8,12 @@
 
 import pandas as pd
 import numpy as np
-import uproot as up
+import uproot3 as up
 import time
 import os
 import sys
 from scipy.ndimage import gaussian_filter
+from scipy.signal import find_peaks
 
 class NGMRootFile:
 
@@ -88,7 +89,7 @@ class NGMRootFile:
 			output_series = pd.Series()
 			output_series['Channels'] = data_series['_slot']*16+data_series['_channel']
 			output_series['Timestamp'] = data_series['_rawclock']
-			output_series['Data'] = data_series['_waveform']
+			#output_series['Data'] = data_series['_waveform']#by yasheng
 			channel_mask, channel_types, channel_positions = self.GenerateChannelMask( data_series['_slot'],data_series['_channel'])
 			output_series['ChannelTypes'] = channel_types
 			#print('-----------------------')
@@ -98,9 +99,46 @@ class NGMRootFile:
 			output_series['ChannelPositions'] = channel_positions
 			###################################################################
 		    #for SiPM gain calibration Yasheng Fu 12/23/2020
-            datas=[]
+			sampling_period_ns = 1./(62.5/1.e3)#hard code need to change
+			datas=[]
 			for i in np.arange(len(output_series['Channels'])):
-				sampling_period_ns = 1./(62.5/1.e3)#hard code need to change
+				peak_energy=[]
+				if 'SiPM' in output_series['ChannelTypes'][i]:# and output_series['Channels'] == 0:
+					baseline_value = np.mean(data_series['_waveform'][i])	
+					#print(baseline_value)
+					#Transform to frequency domain
+					wfm_fft =np.fft.rfft(data_series['_waveform'][i]-baseline_value)
+					
+					#FFT and high frequence cut(<0.5e7)
+					wfm_fft_pass = np.zeros_like(wfm_fft) 
+					freqs = np.fft.rfftfreq(len(data_series['_waveform'][i]),d=1.e-9*sampling_period_ns)
+					fft_freq_pass = np.logical_and(freqs < 0.5e7, freqs >=0)
+					wfm_fft_pass[fft_freq_pass] = wfm_fft[fft_freq_pass]	
+
+					#inverse FFT
+					wfm_ifft_pass = np.fft.irfft(wfm_fft_pass)
+
+					#Peak finding algorithm
+					peaks, _= find_peaks(wfm_ifft_pass,height = 100)
+					#print("---------------peaks-------------")
+					#print(type(peaks))
+					if len(peaks):
+						for i in np.arange(len(peaks)):
+							t_max_point = peaks[i]
+							window_start = t_max_point - int(400/sampling_period_ns)
+							window_end = t_max_point + int(450/sampling_period_ns)
+							data_array = wfm_ifft_pass[window_start:window_end]
+							cumul_pulse_energy = np.cumsum(data_array)
+							area_window_length = int(50./sampling_period_ns)# average over 50ns
+							sipm_energy = np.mean(cumul_pulse_energy[-area_window_length:])
+							#print("sipm_energy")
+							#print(sipm_energy)
+							peak_energy.append(sipm_energy)
+				datas.append(peak_energy)
+						#print("Not empty")ls
+
+					#print(peaks) 
+				'''
 				data_series['_waveform'][i] = gaussian_filter( data_series['_waveform'][i].astype(float), \
 				80./sampling_period_ns )
 				baseline = np.mean(data_series['_waveform'][i])
@@ -118,6 +156,7 @@ class NGMRootFile:
 				#print(max_point-baseline)
 				#print(sipm_energy) 
 				datas.append(sipm_energy)
+			'''
 			output_series['SiPMEnergy'] = datas
 			#print('################')
 			#print(type(output_series['SiPMEnergy']))
@@ -127,10 +166,10 @@ class NGMRootFile:
 
 			global_evt_counter += 1
 			local_evt_counter += 1
-			if local_evt_counter > 20 and save:
+			if local_evt_counter > 500 and save:
 				output_filename = '{}{}_{:0>3}.h5'.format( self.output_directory,\
 									self.GetFileTitle(str(self.infile.name)),\
-									file_counter )
+									file_counter)
 				df.to_hdf(output_filename,key='raw')
 				local_evt_counter = 0
 				file_counter += 1

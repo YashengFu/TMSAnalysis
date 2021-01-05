@@ -541,16 +541,35 @@ class Event:
 		for k,v in self.waveform.items():
 			self.waveform[k].data = gaussian_filter( v.data.astype(float), time_width*self.sampling_frequency)
 		return self.waveform
-
+	def FFT(self):
+		for k,v in self.waveform.items():
+			wfm_fft =np.fft.rfft(v.data.astype(float))
+			
+			self.waveform[k].data = wfm_fft
+#			self.waveform[k].data = np.fft.irfft(wfm_fft)
+			print('FFT--waveform test')
+		return self.waveform
 
 	def plot_event( self, risetime=False ):
 		import matplotlib.pyplot as plt
+		import random
 		ch_offset = 250
 		with PdfPages('multipage.pdf') as pdf:
+			noise = []	
 			for i,e in enumerate(np.argsort(self.ix_channel)):
 				v = list(self.waveform.keys())[e]
-				if 'SiPM' in self.waveform[v].detector_type: 
-					#self.waveform[v].data = gaussian_filter( self.waveform[v].data.astype(float), 80./self.sampling_period_ns )
+				if 'SiPM' in self.waveform[v].detector_type and '1-2' in v:
+					print(v) 
+					baseline_values = np.mean(self.waveform[v].data)
+					for i in np.arange(len(self.waveform[v].data)):
+						if (self.waveform[v].data[i]-baseline_values)<220:
+							noise.append(self.waveform[v].data[i]-baseline_values)
+						else:
+							noise.append(random.uniform(-300,300)) 
+
+			for i,e in enumerate(np.argsort(self.ix_channel)):
+				v = list(self.waveform.keys())[e]		
+				if 'SiPM' in self.waveform[v].detector_type:
 					baseline_value = np.mean(self.waveform[v].data)
 					baseline_rms = np.std(self.waveform[v].data)
 					max_point = np.max(self.waveform[v].data)
@@ -563,19 +582,71 @@ class Event:
 					cumul_pulse_energy = np.cumsum( data_array )
 					area_window_length = int(50./self.sampling_period_ns) # average over 400ns
 					pulse_energy = np.mean(cumul_pulse_energy[-area_window_length:])
-					print(pulse_energy)
-					print(5*baseline_rms)
-					print(max_point-baseline_value)
-					print('----------')
+					
+					#Transform to frequency domain
+					wfm_fft =np.fft.rfft(self.waveform[v].data-baseline_value)
+					wfm_noise_fft =np.fft.rfft(noise)
+					wfm_fft_total = wfm_fft-wfm_noise_fft
 
-					plt.plot(np.arange(len(self.waveform[v].data))/self.sampling_frequency,self.waveform[v].data-baseline_value)#+ch_offset*i)
-					#p = plt.plot(np.arange(len(self.waveform[v].data))/self.sampling_frequency,self.waveform[v].data-self.baseline[e]+ch_offset*i)
+					#FILTER 
+					#filter = ((np.abs(wfm_fft))**2-(np.abs(wfm_noise_fft))**2)/((np.abs(wfm_fft))**2)
+					#print(filter)
+
+					#FREQUENCE AXIS					
+					wfm_fft_pass = np.zeros_like(wfm_fft) 
+					freqs = np.fft.rfftfreq(len(self.waveform[v].data),d=1.e-6/self.sampling_frequency)
+					fft_freq_pass = np.logical_and(freqs < 0.5e7, freqs >=0)
+					wfm_fft_pass[fft_freq_pass] = wfm_fft[fft_freq_pass]
+
+					wfm_ifft_pass = np.fft.irfft(wfm_fft_pass)
+					wfm_ifft_total = np.fft.irfft(wfm_fft_total)
+					wfm_noise_ifft = np.fft.irfft(wfm_noise_fft)
+					#plt.figure(figsize=(5,3))
+					
+					plt.subplot(2,2,1)
+					plt.title('Channel name{} Energy(ADC):{:.1f}'.format(v,pulse_energy))
+					plt.plot(np.arange(len(self.waveform[v].data))/self.sampling_frequency,self.waveform[v].data-baseline_value)
+					plt.subplot(2,2,2)
+					plt.title("signal frequence")
+					plt.plot(freqs,np.abs(wfm_fft))#,np.abs(wfm_fft))#+ch_offset*i)
+					plt.ylim(-50,60000)
+					'''
+					plt.subplot(4,2,3)
+					plt.title("noise waveform")
+					#plt.figure(figsize=(5,3))
+					plt.subplot(4,2,4)
+					plt.plot(freqs,np.abs(wfm_noise_fft))#,np.abs(wfm_fft))#+ch_offset*i)
+					plt.ylim(-50,60000)
+					plt.title("noise frequence")
+					plt.subplot(4,2,5)
+					plt.plot(np.arange(len(wfm_ifft_total))/self.sampling_frequency,wfm_ifft_total)#,np.abs(wfm_fft))#+ch_offset*i)
+					plt.title("FFT waveform")
+					plt.subplot(4,2,6)
+					plt.plot(freqs,np.abs(wfm_fft_total))#,np.abs(wfm_fft))#+ch_offset*i)
+					plt.ylim(-50,60000)
+					plt.title("FFT frequence")
+					'''
+					plt.subplot(2,2,3)
+					plt.plot(np.arange(len(wfm_ifft_pass))/self.sampling_frequency,wfm_ifft_pass)#,np.abs(wfm_fft))#+ch_offset*i)
+					plt.title("High frequency cut waveform")
+					plt.subplot(2,2,4)
+					plt.ylim(-50,60000)
+					plt.plot(freqs,np.abs(wfm_fft_pass))#,np.abs(wfm_fft))#+ch_offset*i)
+					plt.title("High frequency cut frequence")
+					
+					plt.tight_layout(2)
+					
+					#plt.subplot(5,2,7)
+					#plt.title("ratio")
+					#plt.ylim(-30,10)
+					#plt.plot(freqs,filter)#,np.abs(wfm_fft))#+ch_offset*i)
+					#plt.plot(np.arange(len(self.waveform[v].data))/self.sampling_frequency,self.waveform[v].data)#-baseline_value)#+ch_offset*i)
+					#plt.plot(np.arange(len(self.waveform[v].data)),self.waveform[v].data-self.baseline[e]+ch_offset*i)
 					#plt.text(-10,0,'{} {:.1f}'.format(v,pulse_energy))
 					#plt.text(0,ch_offset*i,'{} {:.1f}'.format(v,pulse_energy))					
-					plt.xlabel('time [$\mu$s]')
-					plt.xlim(6.9,7.1)
-					#plt.title('Channel name{} Energy(ADC):{:.1f}'.format(v,pulse_energy))
-					#plt.figure(figsize=(3,5))
+					#plt.xlabel('time [$\mu$s]')
+					plt.xlabel('frequence [Hz]')
+					#plt.xlim(6.9,7.1)
 					pdf.savefig()
 					plt.close()
 					#if risetime and self.charge_energy_ch[e]>0:

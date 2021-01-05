@@ -85,14 +85,15 @@ cut_index = data_df[mask].index
 #a waveform can be accessed in the following way, in this case the first event passing the cut
 event = Waveform.Event(fname,\
     '/dybfs2/nEXO/fuys/stanford_teststand/data/30th/20200912_MorningNoise_PreRecirculation/raw_data',\
-    cut_index[4],\
+    cut_index[2],\
     run_parameters_file,calibrations_file,channel_map_file)
 #the second parameter in the Event class is the location of the tier1 file, which is where the low level information
 #are stored, such as the waveform. Make sure the dataset (in this case 20200213_AfterRnInjection matches with the one
 #opened in the reduced_added.h5 file), the third parameter is the number of the event you want to see the waveform of
 
-#smoothing_windows_us = 0.08
+smoothing_windows_us = 0.08
 #event.smooth(smoothing_windows_us)
+#event.FFT()
 plot = event.plot_event(risetime=True)
 #plot.show()
 plot.savefig('./test.png')
