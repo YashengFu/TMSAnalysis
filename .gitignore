@@ -11,4 +11,6 @@ WaveformAnalysis/event_driver.py
 *.h5
 *.pkl
 *.root
+*.pdf
+*.png
 *.pyc
