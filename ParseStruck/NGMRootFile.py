@@ -34,7 +34,8 @@ class NGMRootFile:
 			self.channel_map = config.channel_map
 		else:
 			print('WARNING: No channel map file provided. Using the default one...')
-			self.channel_map = pd.read_csv('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/30th/Channel_Map_Run30.csv',skiprows=0)
+			#self.channel_map = pd.read_csv('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/30th/Channel_Map_Run30.csv',skiprows=0)
+			self.channel_map = pd.read_csv('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/31th/Channel_Maps_Run31_DS01.csv',skiprows=0)
 			#self.channel_map = pd.read_csv(package_directory + '/channel_map_8ns_sampling.txt',skiprows=9)
 		self.h5_file = None
 
@@ -89,7 +90,7 @@ class NGMRootFile:
 			output_series = pd.Series()
 			output_series['Channels'] = data_series['_slot']*16+data_series['_channel']
 			output_series['Timestamp'] = data_series['_rawclock']
-			#output_series['Data'] = data_series['_waveform']#by yasheng
+			output_series['Data'] = data_series['_waveform']#by yasheng
 			channel_mask, channel_types, channel_positions = self.GenerateChannelMask( data_series['_slot'],data_series['_channel'])
 			output_series['ChannelTypes'] = channel_types
 			#print('-----------------------')
@@ -99,6 +100,7 @@ class NGMRootFile:
 			output_series['ChannelPositions'] = channel_positions
 			###################################################################
 		    #for SiPM gain calibration Yasheng Fu 12/23/2020
+			'''
 			sampling_period_ns = 1./(62.5/1.e3)#hard code need to change
 			datas=[]
 			for i in np.arange(len(output_series['Channels'])):
@@ -119,26 +121,25 @@ class NGMRootFile:
 					wfm_ifft_pass = np.fft.irfft(wfm_fft_pass)
 
 					#Peak finding algorithm
-					peaks, _= find_peaks(wfm_ifft_pass,height = 100)
+					peaks, _= find_peaks(wfm_ifft_pass,height = 150)
 					#print("---------------peaks-------------")
 					#print(type(peaks))
 					if len(peaks):
 						for i in np.arange(len(peaks)):
 							t_max_point = peaks[i]
-							window_start = t_max_point - int(400/sampling_period_ns)
-							window_end = t_max_point + int(450/sampling_period_ns)
+							window_start = t_max_point - int(200/sampling_period_ns)
+							window_end = t_max_point + int(200/sampling_period_ns)
 							data_array = wfm_ifft_pass[window_start:window_end]
 							cumul_pulse_energy = np.cumsum(data_array)
-							area_window_length = int(50./sampling_period_ns)# average over 50ns
+							area_window_length = int(5./sampling_period_ns)# average over 5ns
 							sipm_energy = np.mean(cumul_pulse_energy[-area_window_length:])
-							#print("sipm_energy")
-							#print(sipm_energy)
-							peak_energy.append(sipm_energy)
+							#peak_energy.append(sipm_energy)
+							peak_energy.append(wfm_ifft_pass[peaks[i]])#pluse test by yasheng
 				datas.append(peak_energy)
 						#print("Not empty")ls
-
+			'''
 					#print(peaks) 
-				'''
+			'''
 				data_series['_waveform'][i] = gaussian_filter( data_series['_waveform'][i].astype(float), \
 				80./sampling_period_ns )
 				baseline = np.mean(data_series['_waveform'][i])
@@ -156,26 +157,26 @@ class NGMRootFile:
 				#print(max_point-baseline)
 				#print(sipm_energy) 
 				datas.append(sipm_energy)
+			output_series['SiPMEnergy'] = datas			#print(type(output_series['SiPMEnergy']))
 			'''
-			output_series['SiPMEnergy'] = datas
-			#print('################')
-			#print(type(output_series['SiPMEnergy']))
             ###################################################################
 			df = df.append(output_series,ignore_index=True)	
 
 
 			global_evt_counter += 1
 			local_evt_counter += 1
-			if local_evt_counter > 500 and save:
+			#'''by yasheng
+			if local_evt_counter > 100 and save:
 				output_filename = '{}{}_{:0>3}.h5'.format( self.output_directory,\
 									self.GetFileTitle(str(self.infile.name)),\
 									file_counter)
 				df.to_hdf(output_filename,key='raw')
+				df.drop(df.index,inplace=True)
 				local_evt_counter = 0
 				file_counter += 1
-				df = pd.DataFrame(columns=['Channels','Timestamp','Data','ChannelTypes','ChannelPositions'])
+				#df = pd.DataFrame(columns=['Channels','Timestamp','Data','ChannelTypes','ChannelPositions','SiPMEnergy'])
 				print('Written to {} at {:4.4} seconds'.format(output_filename,time.time()-start_time))	
-		
+			#'''by yasheng
 
 		if save:
 			output_filename = '{}{}_{:0>3}.h5'.format( self.output_directory,\

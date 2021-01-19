@@ -553,9 +553,11 @@ class Event:
 	def plot_event( self, risetime=False ):
 		import matplotlib.pyplot as plt
 		import random
-		ch_offset = 250
+		ch_offset = 1000
+		'''
 		with PdfPages('multipage.pdf') as pdf:
 			noise = []	
+			#extract noise waveform 
 			for i,e in enumerate(np.argsort(self.ix_channel)):
 				v = list(self.waveform.keys())[e]
 				if 'SiPM' in self.waveform[v].detector_type and '1-2' in v:
@@ -566,12 +568,15 @@ class Event:
 							noise.append(self.waveform[v].data[i]-baseline_values)
 						else:
 							noise.append(random.uniform(-300,300)) 
-
-			for i,e in enumerate(np.argsort(self.ix_channel)):
+		'''
+			#read waveform in every channel and display it  
+		for i,e in enumerate(np.argsort(self.ix_channel)):
 				v = list(self.waveform.keys())[e]		
 				if 'SiPM' in self.waveform[v].detector_type:
 					baseline_value = np.mean(self.waveform[v].data)
 					baseline_rms = np.std(self.waveform[v].data)
+					#max point method
+					'''
 					max_point = np.max(self.waveform[v].data)
 					t_max_point = np.argmax(self.waveform[v].data)
 
@@ -582,7 +587,8 @@ class Event:
 					cumul_pulse_energy = np.cumsum( data_array )
 					area_window_length = int(50./self.sampling_period_ns) # average over 400ns
 					pulse_energy = np.mean(cumul_pulse_energy[-area_window_length:])
-					
+					'''
+					'''
 					#Transform to frequency domain
 					wfm_fft =np.fft.rfft(self.waveform[v].data-baseline_value)
 					wfm_noise_fft =np.fft.rfft(noise)
@@ -601,15 +607,17 @@ class Event:
 					wfm_ifft_pass = np.fft.irfft(wfm_fft_pass)
 					wfm_ifft_total = np.fft.irfft(wfm_fft_total)
 					wfm_noise_ifft = np.fft.irfft(wfm_noise_fft)
-					#plt.figure(figsize=(5,3))
-					
+				
+					#plot channel waveform respectivity					
 					plt.subplot(2,2,1)
 					plt.title('Channel name{} Energy(ADC):{:.1f}'.format(v,pulse_energy))
+					plt.xlim(25,27)
 					plt.plot(np.arange(len(self.waveform[v].data))/self.sampling_frequency,self.waveform[v].data-baseline_value)
 					plt.subplot(2,2,2)
 					plt.title("signal frequence")
 					plt.plot(freqs,np.abs(wfm_fft))#,np.abs(wfm_fft))#+ch_offset*i)
 					plt.ylim(-50,60000)
+					'''
 					'''
 					plt.subplot(4,2,3)
 					plt.title("noise waveform")
@@ -626,35 +634,34 @@ class Event:
 					plt.ylim(-50,60000)
 					plt.title("FFT frequence")
 					'''
+					'''
 					plt.subplot(2,2,3)
 					plt.plot(np.arange(len(wfm_ifft_pass))/self.sampling_frequency,wfm_ifft_pass)#,np.abs(wfm_fft))#+ch_offset*i)
 					plt.title("High frequency cut waveform")
+					plt.xlim(25,27)
 					plt.subplot(2,2,4)
 					plt.ylim(-50,60000)
 					plt.plot(freqs,np.abs(wfm_fft_pass))#,np.abs(wfm_fft))#+ch_offset*i)
 					plt.title("High frequency cut frequence")
-					
-					plt.tight_layout(2)
-					
-					#plt.subplot(5,2,7)
-					#plt.title("ratio")
-					#plt.ylim(-30,10)
-					#plt.plot(freqs,filter)#,np.abs(wfm_fft))#+ch_offset*i)
-					#plt.plot(np.arange(len(self.waveform[v].data))/self.sampling_frequency,self.waveform[v].data)#-baseline_value)#+ch_offset*i)
-					#plt.plot(np.arange(len(self.waveform[v].data)),self.waveform[v].data-self.baseline[e]+ch_offset*i)
-					#plt.text(-10,0,'{} {:.1f}'.format(v,pulse_energy))
-					#plt.text(0,ch_offset*i,'{} {:.1f}'.format(v,pulse_energy))					
-					#plt.xlabel('time [$\mu$s]')
 					plt.xlabel('frequence [Hz]')
-					#plt.xlim(6.9,7.1)
+					plt.tight_layout(2)
 					pdf.savefig()
 					plt.close()
+					'''					
+					#plot all channels waveform in one figure
+					 
+					#plt.plot(freqs,filter)#,np.abs(wfm_fft))#+ch_offset*i)
+					plt.plot(np.arange(len(self.waveform[v].data))/self.sampling_frequency,self.waveform[v].data-baseline_value+ch_offset*i)
+					#plt.plot(np.arange(len(self.waveform[v].data)),self.waveform[v].data-self.baseline[e]+ch_offset*i)
+					#plt.text(-10,0,'{} {:.1f}'.format(v,pulse_energy))
+					plt.text(169,ch_offset*i,'{} {:.1f}'.format(v,baseline_rms))					
+					#plt.xlim(6.9,7.1)
 					#if risetime and self.charge_energy_ch[e]>0:
 						#plt.vlines(self.risetime[e],ch_offset*software_channel[i],ch_offset*software_channel[i],linestyles='dashed',colors=p[0].get_color())
 						#plt.vlines(self.risetime[e],ch_offset*software_channel[i],ch_offset*software_channel[i]+2*self.charge_energy_ch[e],linestyles='dashed',colors=p[0].get_color())
-		#plt.xlabel('time [$\mu$s]')
-		#plt.title('Event {}, Energy {:.1f} ADC counts'.format(self.event_number,self.tot_charge_energy))
-		#plt.tight_layout()
+		plt.xlabel('time [$\mu$s]')
+		plt.title('Event {}, Energy {:.1f} ADC counts'.format(self.event_number,self.tot_charge_energy))
+#		plt.tight_layout()
 		return(plt)
 
 class Simulated_Event:
