@@ -27,7 +27,7 @@ file_count =0
 for filename in files:
     #if file_count%10==0:
     print(file_count)
-    if file_count > 50:#by yasheng
+    if file_count > 5:#by yasheng
         break
     file_count +=1
     if '0912' in filename and filename.endswith('.h5'): #and file_count <50:
@@ -364,36 +364,28 @@ for channel, hist in pulseheight_hists.items():
     munguess = 130
     speguess = 210.
     sigguess = 20.
-    aguess = 900.
-    adpguess =300.
-    atpguess =100.
+    aguess = 600.
+    adpguess =70.
+    atpguess =20.
     if '2-6' in channel or '2-2' in channel:# or '1-1' in channel:
         continue
-    if '2-5' in channel:
-        fitmin = 70.
-        fitmax = 800.
-        munguess = 160
-        speguess = 180.
-        sigguess = 20.
-        aguess = 600.
-        adpguess =100.
-        atpguess =20.
+    
     if '1-1' in channel or '1-2' in channel:
         fitmax=800.
         fitmin=70.
-        munguess = 200
-        speguess=280.
-        sigguess=30.
-        aguess =8000.
-        adpguess =1000.
-        atpguess =500.
+        munguess = 180
+        speguess=350.
+        sigguess=60.
+        aguess =1000.
+        adpguess =500.
+        atpguess =100.
     
     fitmask = (bin_centers<fitmax) & (bin_centers > fitmin)
     
     #print('SPE mean in channel {}'.format(channel))
     p,pcov = opt.curve_fit(SPEModel,bin_centers[fitmask],bin_vals[fitmask],sigma=bin_err[fitmask],\
                            #p0=(200.,70.,10.,aguess,speguess,sigguess,200.,50.))
-                           p0=(10000.,munguess,30.,aguess,speguess,sigguess,adpguess,atpguess))
+                           p0=(1000.,munguess,30.,aguess,speguess,sigguess,adpguess,atpguess))
     
     print('SPE mean in channel {}: {:4.4}'.format(channel,p[4]))
     #plt.figure(i)    
@@ -428,7 +420,7 @@ for channel, hist in pulseheight_hists.items():
     plt.xlim(0.,800.)
     
     ''' 
-    ax[row,col].text(530.,500.,'{}'.format(channel),fontsize=20,\
+    ax[row,col].text(530.,800.,'{}'.format(channel),fontsize=20,\
                      bbox={'facecolor':(1.,1.,1.), 'edgecolor':(0.,0.,0.), 'alpha':1.})
     
     ax[row,col].legend(fontsize=15,edgecolor=(1.,1.,1.),framealpha=0.)

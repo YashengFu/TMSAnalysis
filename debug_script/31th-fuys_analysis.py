@@ -15,12 +15,12 @@ import time
 color_cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 analysis_config = StruckAnalysisConfiguration.StruckAnalysisConfiguration()
-analysis_config.GetChannelMapFromFile('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/30th/Channel_Map_Run30.csv')
+analysis_config.GetChannelMapFromFile('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/31th/Channel_Maps_Run31_DS01.csv')
 analysis_config.GetRunParametersFromFile('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/30th/Run_Parameters_Run30_20200911_OvernightBi207_AfterFilling.csv')
 analysis_config.GetCalibrationConstantsFromFile('/dybfs2/nEXO/fuys/stanford_teststand/TMSAnalysis/config/30th/Calibrations_Xe_Run11b.csv')
 
 #reading HDF5 filelist
-files = os.listdir('/dybfs2/nEXO/fuys/stanford_teststand/data/30th/20200912_MorningNoise_PreRecirculation/Cali_data/data/')
+files = os.listdir('/dybfs2/nEXO/fuys/stanford_teststand/data/31th/20201102_DS23_NoiseData/Cali_data/data/')
 #print(len(files))
 dflist = []
 file_count =0 
@@ -30,8 +30,8 @@ for filename in files:
     if file_count > 50:#by yasheng
         break
     file_count +=1
-    if '0912' in filename and filename.endswith('.h5'): #and file_count <50:
-        dflist.append(pd.read_hdf('/dybfs2/nEXO/fuys/stanford_teststand/data/30th/20200912_MorningNoise_PreRecirculation/Cali_data/data/'+filename))
+    if 'DS23' in filename and filename.endswith('.h5'): #and file_count <50:
+        dflist.append(pd.read_hdf('/dybfs2/nEXO/fuys/stanford_teststand/data/31th/20201102_DS23_NoiseData/Cali_data/data/'+filename))
         
 df05 = pd.concat(dflist,ignore_index=True)
 
@@ -40,7 +40,7 @@ def Gaussian(x,A,mu,sig):
 
 
 #display raw data waveform
-evt_num = 3
+evt_num = 16
 evt = df05.iloc[evt_num]
 
 plt.rcParams['figure.figsize'] = [12,12]
@@ -76,7 +76,7 @@ plt.legend(fontsize=18,loc='upper right',handlelength=0.75)
 plt.xlabel('Time (samples)')
 plt.ylabel('Voltage ADC counts (500ADC offset)')
 plt.title('Raw waveforms')
-plt.savefig('./fuyss_Raw_data.png')
+plt.savefig('./DS23_Raw_data.png')
 plt.close()
 
 
@@ -84,7 +84,6 @@ plt.close()
 from scipy.signal import butter
 from scipy.signal import filtfilt
 import scipy.optimize as opt
-#evt_num =0
 evt = df05.iloc[evt_num]
 #print(evt_num)
 
@@ -137,7 +136,7 @@ plt.legend(fontsize=18,loc='upper right',handlelength=0.75)
 plt.xlabel('Time (samples)')
 plt.ylabel('Voltage ADC counts (500ADC offset)')
 plt.title('after filter and smooth')
-plt.savefig('./fuyss_one_event_after_process.png')
+plt.savefig('./Ds23_one_event_after_process.png')
 plt.close()
 #process data, include butter filter and smooth 
 adc_vals = dict()
@@ -177,7 +176,7 @@ for index, evt in df05.iterrows():
         
 for channel, data in adc_vals.items():
     adc_vals[channel] = np.array(data)       
-print(adc_vals)
+#print(adc_vals)
 
 
 #fix sigma value for find peak algorithm(use smoothed data)
@@ -204,8 +203,7 @@ for channel, array in adc_vals.items():
     bin_centers = (thishist.bins[0][1:] + thishist.bins[0][:-1])/2.
     bin_vals = thishist.values
     fitmask = (bin_centers>-100.)&(bin_centers<100.)
-
-    if '2-1'  not in channel and '2-3' not in channel and '2-4' not in channel:
+    if 2>1:
     #if '1-3' not in channel and '1-1' not in channel:
         p,pcov = opt.curve_fit(Gaussian,bin_centers[fitmask],bin_vals[fitmask],p0=(5000000.,0.,10.))
         sigmas_smoothed[channel] = p[2]
@@ -219,7 +217,7 @@ for channel, array in adc_vals.items():
     
     index += 1
 
-plt.savefig('./histogram_of_sigma_display_5000events.png',dpi=200,bbox_inches='tight')
+plt.savefig('./DS23histogram_of_sigma_display_5000events.png',dpi=200,bbox_inches='tight')
 plt.close()
 
 # define function to find singal in noise waveforms
@@ -247,7 +245,6 @@ def PulseFinder( raw_data, chname, threshold_sig=4. ):
     return peaks
 
 #find peak in one event and display
-evt_num = 3
 evt = df05.iloc[evt_num]
 
 plt.rcParams['figure.figsize'] = [12,12]
@@ -276,11 +273,14 @@ for i in range(len(evt['Channels'])):
     plt.plot(xvals, raw_data + yvalues[num_channels-1],\
              label='Ch {}'.format(ch_name),color=color_cycle[num_channels-1])
     
-    if '2-1'  not in ch_name and '2-3' not in ch_name and '2-4' not in ch_name:    
+    if 2>1:
     #if '1-1' not in ch_name and '1-3' not in ch_name:
         pulse_idxs = PulseFinder(raw_data,ch_name,threshold_sig=4)
         for idx in pulse_idxs:
-            plt.plot(xvals[idx], np.max(raw_data[idx-20:idx+20]) + yvalues[num_channels-1],'ok')
+            if idx < 20:
+                plt.plot(xvals[idx], np.max(raw_data[0:idx+20]) + yvalues[num_channels-1],'ok')
+            if idx >= 20:
+                plt.plot(xvals[idx], np.max(raw_data[idx-20:idx+20]) + yvalues[num_channels-1],'ok')
             #plt.plot(xvals[idx], np.max(raw_data[idx:idx+20]) + yvalues[num_channels-1],'ok')
     
     
@@ -289,15 +289,14 @@ plt.legend(fontsize=18,loc='upper right',handlelength=0.75)
 plt.xlabel('Time (samples)')
 plt.ylabel('Voltage ADC counts (500ADC offset)')
 plt.title('Raw waveforms')
-plt.savefig('./peak_display_one_event.png')
+plt.savefig('./DS23peak_display_one_event.png')
 plt.close()
 
 #SiPM gain calibration process 
 pulse_heights = dict()
 
 for label in chlabels:
-    if '2-1'  not in label and '2-3' not in label and '2-4' not in label:    
-    #if '1-1' not in label and '1-3' not in label:
+    if '1-3' not in label and '1-1' not in label:
         pulse_heights[label] = []
     
 
@@ -310,19 +309,19 @@ for index, evt in df05.iterrows():
 
         ch_name = analysis_config.GetChannelNameForSoftwareChannel(evt['Channels'][i])
 
-        if '2-1'  not in ch_name and '2-3' not in ch_name and '2-4' not in ch_name:    
-        #if '1-1' in ch_name or '1-3' in ch_name:
+        #if '2-1'  not in ch_name and '2-3' not in ch_name and '2-4' not in ch_name:    
+        if '1-3' not in ch_name and '1-1' not in ch_name:
 
             baseline = np.mean(evt['Data'][i][0:200]) 
             raw_data = evt['Data'][i]-baseline
         
-            evtpulseidxs = PulseFinder(raw_data,ch_name,threshold_sig=3)
+            evtpulseidxs = PulseFinder(raw_data,ch_name,threshold_sig=4)
         
             evtpulseheights = []
             for idx in evtpulseidxs:
                 if idx <20:
                     evtpulseheights.append( np.max(raw_data[0:idx+20]) )
-                if idx >20:
+                if idx >=20:
                     evtpulseheights.append( np.max(raw_data[idx-20:idx+20]) )
         
             pulse_heights[ch_name].extend( evtpulseheights )
@@ -354,19 +353,19 @@ for channel, hist in pulseheight_hists.items():
     
     row = (i) % 3
     col = int(np.floor( i/3. ))
-
     bin_centers = (hist.bins[0][1:] + hist.bins[0][0:-1])/2.
     bin_vals = hist.values
     bin_err = np.sqrt(hist.values)
-    
+    print(row,col) 
     fitmin = 70.
     fitmax = 800.
     munguess = 130
-    speguess = 210.
+    speguess = 250.
     sigguess = 20.
-    aguess = 900.
-    adpguess =300.
-    atpguess =100.
+    aguess = 350.
+    adpguess =90.
+    atpguess =20.
+    '''
     if '2-6' in channel or '2-2' in channel:# or '1-1' in channel:
         continue
     if '2-5' in channel:
@@ -378,69 +377,41 @@ for channel, hist in pulseheight_hists.items():
         aguess = 600.
         adpguess =100.
         atpguess =20.
-    if '1-1' in channel or '1-2' in channel:
-        fitmax=800.
-        fitmin=70.
-        munguess = 200
-        speguess=280.
-        sigguess=30.
-        aguess =8000.
-        adpguess =1000.
-        atpguess =500.
-    
+    '''
     fitmask = (bin_centers<fitmax) & (bin_centers > fitmin)
     
-    #print('SPE mean in channel {}'.format(channel))
-    p,pcov = opt.curve_fit(SPEModel,bin_centers[fitmask],bin_vals[fitmask],sigma=bin_err[fitmask],\
-                           #p0=(200.,70.,10.,aguess,speguess,sigguess,200.,50.))
-                           p0=(10000.,munguess,30.,aguess,speguess,sigguess,adpguess,atpguess))
+    #p,pcov = opt.curve_fit(SPEModel,bin_centers[fitmask],bin_vals[fitmask],sigma=bin_err[fitmask],\
+    #                       p0=(10000.,munguess,30.,aguess,speguess,sigguess,adpguess,atpguess))
     
-    print('SPE mean in channel {}: {:4.4}'.format(channel,p[4]))
-    #plt.figure(i)    
-    #hl.plot1d( hist, color=color_cycle[i], label='data'.format(channel) )
+    #print('SPE mean in channel {}: {:4.4}'.format(channel,p[4]))
+
     hl.plot1d( ax[row,col], hist, color=color_cycle[i], label='data'.format(channel) )
-    
+    '''
     xfit = np.linspace(0.,800.,400)
     yfit = SPEModel(xfit,p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7])
     ax[row,col].plot(xfit,yfit,'--',color=color_cycle[i],\
-    #plt.plot(xfit,yfit,'--',color=color_cycle[i],\
                     linewidth=1,label='Model fit\nSPE={:4.4} ADC'.format(p[4]))
     yspe = Gaussian(xfit,p[3],p[4],p[5])
     ydpe = Gaussian(xfit,p[6],2*p[4],p[5])
     ytpe = Gaussian(xfit,p[7],3*p[4],p[5])
-    '''
-    plt.plot(xfit,yspe,'--',color=color_cycle[i],linewidth=1)
-    plt.plot(xfit,ydpe,'--',color=color_cycle[i],linewidth=1)
-    plt.plot(xfit,ytpe,'--',color=color_cycle[i],linewidth=1)
-    '''
+
     ax[row,col].plot(xfit,yspe,'--',color=color_cycle[i],linewidth=1)
     ax[row,col].plot(xfit,ydpe,'--',color=color_cycle[i],linewidth=1)
     ax[row,col].plot(xfit,ytpe,'--',color=color_cycle[i],linewidth=1)
-    
-    #plt.text(530.,100.,'{}'.format(channel),fontsize=20,\
-                     #bbox={'facecolor':(1.,1.,1.), 'edgecolor':(0.,0.,0.), 'alpha':1.})
     '''
-    plt.legend(fontsize=15,edgecolor=(1.,1.,1.),framealpha=0.)
-    plt.xlabel('Pulse height (ADC)')
-    plt.ylabel('Counts')
-    plt.yscale('log')
-    plt.ylim(5.,np.max(bin_vals)*1.1)
-    plt.xlim(0.,800.)
     
-    ''' 
-    ax[row,col].text(530.,500.,'{}'.format(channel),fontsize=20,\
+    ax[row,col].text(530.,300.,'{}'.format(channel),fontsize=20,\
                      bbox={'facecolor':(1.,1.,1.), 'edgecolor':(0.,0.,0.), 'alpha':1.})
     
     ax[row,col].legend(fontsize=15,edgecolor=(1.,1.,1.),framealpha=0.)
     ax[row,col].set_xlabel('Pulse height (ADC)')
     ax[row,col].set_yscale('log')
-    ax[row,col].set_ylim(5.,np.max(bin_vals)*1.1)
+    ax[row,col].set_ylim(5.,50000)
     ax[row,col].set_xlim(0.,1000.)
     
     i+=1
 ax[1,0].set_ylabel('Counts')
 
-plt.savefig('./pe_calibration_triggering_channels.png')#,dpi=200)#,bbox_inches='tight')
-    #plt.savefig('./{}spe_calibration_triggering_channels.png'.format(channel))#,dpi=200)#,bbox_inches='tight')
+plt.savefig('./DS23pe_calibration_triggering_channels.png')#,dpi=200)#,bbox_inches='tight')
 
 print('everything is ok!')
